@@ -219,6 +219,33 @@ module ResqueScheduler
     redis.del :delayed_queue_schedule
   end
 
+  # Given a block, remove jobs that return true from a block
+  #
+  # This allows for removal of delayed jobs that have arguments matching certain criteria
+  def remove_delayed_selection
+    raise ArgumentError, "Please supply a block" unless block_given?
+
+    destroyed = 0
+    # There is no way to search Redis list entries for a partial match, so we query for all
+    # delayed job tasks and do our matching after decoding the payload data
+    jobs = Resque.redis.keys("delayed:*")
+    jobs.each do |job|
+      index = Resque.redis.llen(job) - 1
+      while index >= 0
+        payload = Resque.redis.lindex(job, index)
+        decoded_payload = decode(payload)
+        if yield(decoded_payload['args'])
+          removed = redis.lrem job, 0, payload
+          destroyed += removed
+          index -= removed
+        else
+          index -= 1
+        end
+      end
+    end
+    destroyed
+  end
+  
   # Given an encoded item, remove it from the delayed_queue
   #
   # This method is potentially very expensive since it needs to scan
