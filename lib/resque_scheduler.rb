@@ -231,7 +231,7 @@ module ResqueScheduler
     Array(redis.zrange(:delayed_queue_schedule, 0, -1)).each do |timestamp|
       job = "delayed:#{timestamp.to_i}"
       index = Resque.redis.llen(job) - 1
-      made_change = false
+      starting_destroyed = destroyed
       while index >= 0
         payload = Resque.redis.lindex(job, index)
         decoded_payload = decode(payload)
@@ -239,12 +239,11 @@ module ResqueScheduler
           removed = redis.lrem job, 0, payload
           destroyed += removed
           index -= removed
-          made_change = true
         else
           index -= 1
         end
       end
-      clean_up_timestamp(job, timestamp) if made_change
+      clean_up_timestamp(job, timestamp) if starting_destroyed != destroyed
     end
     
     destroyed
