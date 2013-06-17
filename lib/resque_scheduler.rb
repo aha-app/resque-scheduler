@@ -230,11 +230,12 @@ module ResqueScheduler
     # delayed job tasks and do our matching after decoding the payload data
     Array(redis.zrange(:delayed_queue_schedule, 0, -1)).each do |timestamp|
       job = "delayed:#{timestamp}"
+      Rails.logger.debug("JOB: #{job.inspect}")
       index = Resque.redis.llen(job) - 1
       while index >= 0
         payload = Resque.redis.lindex(job, index)
         decoded_payload = decode(payload)
-        if yield(decoded_payload['args'])
+        if yield(decoded_payload)
           removed = redis.lrem job, 0, payload
           destroyed += removed
           index -= removed
