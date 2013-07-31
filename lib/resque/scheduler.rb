@@ -68,13 +68,13 @@ module Resque
       # poll/enqueing to finish (should be almost istant).  In the
       # case of sleeping, exit immediately.
       def register_signal_handlers
-        trap("TERM") { shutdown }
-        trap("INT") { shutdown }
+        trap("TERM") { Thread.new { shutdown } }
+        trap("INT") { Thread.new { shutdown } }
 
         begin
-          trap('QUIT') { shutdown }
-          trap('USR1') { print_schedule }
-          trap('USR2') { reload_schedule! }
+          trap('QUIT') { Thread.new { shutdown } }
+          trap('USR1') { Thread.new { print_schedule } }
+          trap('USR2') { Thread.new { reload_schedule! } }
         rescue ArgumentError
           warn "Signals QUIT and USR1 and USR2 not supported."
         end
