@@ -256,9 +256,15 @@ module ResqueScheduler
   # doesn't kill Redis by calling redis.keys.
   def remove_delayed(klass, *args)
     destroyed = 0
+    timestamps = []
     search = encode(job_to_hash(klass, args))
     Array(redis.zrange(:delayed_queue_schedule, 0, -1)).each do |timestamp|
+      destroyed_start = destroyed
       destroyed += redis.lrem "delayed:#{timestamp}", 0, search
+      timestamps << timestamp if destroyed != destroyed_start
+    end
+    timestamps.each do |timestamp|
+      clean_up_timestamp("delayed:#{timestamp}", timestamp)
     end
     destroyed
   end
